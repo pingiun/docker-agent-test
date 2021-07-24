@@ -73,7 +73,7 @@
               after = [ "network.target" "docker.service" ];
               script = ''
                 cd ${./src}
-                ${self.packages.x86_64-linux.python}/bin/uvicorn agent:app
+                DOMAIN_NAME=peertube.pingiun.com ${self.packages.x86_64-linux.python}/bin/uvicorn agent:app
               '';
             };
           };
