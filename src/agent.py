@@ -11,6 +11,34 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+# Sentinel objects that are distinct from None
+_NOT_SET = object()
+
+class Misconfiguration(Exception):
+    """Exception that is raised when something is misconfigured in this file."""
+
+_environments = ["production", "staging", "testing", "development"]
+AGENT_ENV = os.environ.get("AGENT_ENV", "development")
+if AGENT_ENV not in _environments:
+    raise Misconfiguration(f"Set DJANGO_ENV to one of: {', '.join(_environments)}")
+
+def setting(*, development, production, staging=_NOT_SET, testing=_NOT_SET):
+    """Generate a setting depending on the AGENT_ENV and the arguments.
+
+    This function is meant for static settings that depend on the AGENT_ENV. If the
+    staging or testing arguments are left to their defaults, they will fall back to
+    the production and development settings respectively.
+    """
+    if AGENT_ENV == "development" or (AGENT_ENV == "testing" and testing is _NOT_SET):
+        return development
+    if AGENT_ENV == "testing":
+        return testing
+    if AGENT_ENV == "production" or (AGENT_ENV == "staging" and staging is _NOT_SET):
+        return production
+    if AGENT_ENV == "staging":
+        return staging
+    raise Misconfiguration(f"Set AGENT_ENV to one of: {', '.join(_environments)}")
+
 
 async def status(request):
     try:
@@ -129,7 +157,7 @@ def check_certbot_bootstrap():
     try:
         client.containers.run(
             "certbot/certbot:v1.17.0",
-            f"certonly -v -n --test-cert --agree-tos -m jelle@pingiun.com --standalone -d {domain_name} -d www.{domain_name}",
+            f"certonly -v -n {setting(development='--test-cert ', production='')}--agree-tos -m jelle@pingiun.com --standalone -d {domain_name} -d www.{domain_name}",
             name="certbot",
             stdout=True,
             stderr=True,
